@@ -3,85 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>スマホ音声呼び出しシステム</title>
+    <title>スマホ音声呼び出し</title>
     <style>
         body { 
             font-family: 'Helvetica Neue', Arial, sans-serif; 
             margin: 0; 
             background: #121212; 
             color: #fff; 
-            height: 100vh; 
+            min-height: 100vh; 
             display: flex; 
             flex-direction: column; 
-            justify-content: space-between; 
             align-items: center; 
             box-sizing: border-box; 
-            padding: 20px;
+            padding: 15px;
             user-select: none;
         }
 
-        /* 状態・認識結果の表示エリア */
+        /* メイン表示・確認エリア */
         .display-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
             width: 100%;
+            max-width: 480px;
             text-align: center;
+            margin-top: 10px;
+            background: #1e1e1e;
+            padding: 20px 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
         .status-badge {
-            font-size: 16px;
-            color: #aaa;
-            margin-bottom: 15px;
-            padding: 4px 12px;
-            background: #222;
-            border-radius: 20px;
-            border: 1px solid #444;
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 10px;
+            padding: 3px 10px;
+            background: #2a2a2a;
+            border-radius: 15px;
+            display: inline-block;
         }
         .name-box {
-            font-size: 11vw;
+            font-size: 9vw;
+            max-font-size: 36px;
             font-weight: bold;
             color: #00ffcc;
-            min-height: 1.4em;
+            min-height: 1.3em;
             word-break: break-all;
             line-height: 1.2;
+            margin-bottom: 10px;
         }
 
-        /* 音声入力ボタン */
-        .btn-area {
+        /* 操作ボタンエリア */
+        .btn-container {
             width: 100%;
+            max-width: 480px;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin-top: 15px;
         }
-        .mic-btn {
-            width: 80vw;
-            max-width: 320px;
-            height: 80px;
-            border-radius: 40px;
+        .action-btn {
+            flex: 1;
+            height: 65px;
+            border-radius: 10px;
             border: none;
-            background: #007bff;
-            color: white;
-            font-size: 22px;
+            font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
-            transition: all 0.2s;
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10px;
+            gap: 6px;
+            transition: all 0.15s;
         }
-        .mic-btn:active {
-            transform: scale(0.96);
+        .action-btn:active { transform: scale(0.97); }
+
+        /* 音声入力ボタン */
+        .btn-mic {
+            background: #007bff;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
         }
-        /* 音声聞き取り中（赤点滅） */
-        .mic-btn.listening {
+        .btn-mic.listening {
             background: #dc3545;
-            box-shadow: 0 0 20px rgba(220, 53, 69, 0.8);
+            box-shadow: 0 0 15px rgba(220, 53, 69, 0.8);
             animation: pulse 1.2s infinite;
+        }
+
+        /* 呼出ボタン */
+        .btn-call {
+            background: #28a745;
+            color: white;
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
+        }
+        .btn-call:disabled {
+            background: #3a3a3a;
+            color: #777;
+            box-shadow: none;
+            cursor: not-allowed;
         }
 
         @keyframes pulse {
@@ -90,27 +105,86 @@
             100% { transform: scale(1); }
         }
 
-        .footer-note {
+        /* 履歴エリア */
+        .history-section {
+            width: 100%;
+            max-width: 480px;
+            margin-top: 25px;
+            flex: 1;
+        }
+        .history-title {
+            font-size: 14px;
+            color: #888;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .history-item {
+            background: #1e1e1e;
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #2a2a2a;
+        }
+        .history-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #eee;
+        }
+        .history-time {
             font-size: 12px;
             color: #666;
-            margin-top: 10px;
+            margin-right: 10px;
         }
+        .re-call-btn {
+            background: #444;
+            color: #00ffcc;
+            border: 1px solid #555;
+            padding: 6px 14px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .re-call-btn:active { background: #555; }
     </style>
 </head>
 <body>
 
     <!-- 画面中央：名前確認・表示エリア -->
     <div class="display-area">
-        <div id="statusBadge" class="status-badge">初期待機中</div>
+        <div id="statusBadge" class="status-badge">待機中</div>
         <div id="nameDisplay" class="name-box">案内表示</div>
     </div>
 
-    <!-- 画面下部：呼び出しボタン -->
-    <div class="btn-area">
-        <button id="micButton" class="mic-btn" onclick="startVoiceInput()">
-            🎙️ 音声で呼出
+    <!-- 操作ボタン：[音声入力] ➔ [呼出] -->
+    <div class="btn-container">
+        <button id="micBtn" class="action-btn btn-mic" onclick="startVoiceInput()">
+            🎤 音声入力
         </button>
-        <div id="infoText" class="footer-note">ボタンを押して名前をお話しください</div>
+        <button id="callBtn" class="action-btn btn-call" onclick="executeCall()" disabled>
+            📢 呼出
+        </button>
+    </div>
+
+    <!-- 履歴エリア -->
+    <div class="history-section">
+        <div class="history-title">
+            <span>呼び出し履歴</span>
+            <span style="font-size: 11px;">※タップで再呼出</span>
+        </div>
+        <div id="historyList" class="history-list"></div>
     </div>
 
 <script>
@@ -119,16 +193,15 @@
     let resetTimer = null;
     let recognition = null;
     let isListening = false;
+    let currentTargetName = ""; // 現在認識・確認中の名前
 
-    // 1. スリープ防止 (Wake Lock)
+    // 1. スリープ防止
     async function requestWakeLock() {
         try {
             if ('wakeLock' in navigator) {
                 wakeLock = await navigator.wakeLock.request('screen');
             }
-        } catch (err) {
-            console.error(err);
-        }
+        } catch (err) {}
     }
 
     // 2. Bluetooth切断防止（10分ごとに微弱音）
@@ -148,57 +221,71 @@
                 gain.connect(audioCtx.destination);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.5);
-            } catch (e) {
-                console.error(e);
-            }
-        }, 600000); // 10分ごと
+            } catch (e) {}
+        }, 600000);
     }
 
-    // 3. Web Speech API (音声認識) の初期化
+    // ひらがなをカタカナに変換するユーティリティ
+    function toKatakana(str) {
+        return str.replace(/[\u3041-\u3096]/g, function(match) {
+            var chr = match.charCodeAt(0) + 0x60;
+            return String.fromCharCode(chr);
+        });
+    }
+
+    // 3. 音声認識初期化
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
         recognition.lang = 'ja-JP';
-        recognition.interimResults = false; // 確定結果のみ
+        recognition.interimResults = false;
         recognition.continuous = false;
 
         recognition.onstart = () => {
             isListening = true;
-            document.getElementById('micButton').classList.add('listening');
-            document.getElementById('micButton').innerText = '👂 音声認識中...';
+            document.getElementById('micBtn').classList.add('listening');
+            document.getElementById('micBtn').innerText = '👂 認識中...';
             document.getElementById('statusBadge').innerText = 'お名前をお話しください';
             document.getElementById('statusBadge').style.color = '#00ffcc';
         };
 
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript.trim();
-            // 「さん」「様」などを話してしまった場合の簡易整形
-            const cleanName = transcript.replace(/(さん|様|さま|君|くん)$/, '');
-            
-            // 呼び出し処理へ
-            handleCall(cleanName);
+            // 「さん」「様」などをカット
+            let clean = transcript.replace(/(さん|様|さま|君|くん)$/, '');
+            // カタカナに変換
+            clean = toKatakana(clean);
+
+            currentTargetName = clean;
+
+            // 画面にカタカナで確認表示
+            document.getElementById('nameDisplay').innerText = currentTargetName + ' さん';
+            document.getElementById('statusBadge').innerText = '名前を確認して [呼出] を押してください';
+            document.getElementById('statusBadge').style.color = '#ffc107';
+
+            // 呼出ボタンを有効化
+            document.getElementById('callBtn').disabled = false;
         };
 
         recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            resetToStandby();
             if (event.error === 'not-allowed') {
-                alert('マイクの使用が許可されていません。ブラウザ設定でマイクを許可してください。');
+                alert('マイクが許可されていません。ブラウザ設定を確認してください。');
             }
+            resetMicBtn();
         };
 
         recognition.onend = () => {
-            isListening = false;
-            document.getElementById('micButton').classList.remove('listening');
-            document.getElementById('micButton').innerText = '🎙️ 音声で呼出';
+            resetMicBtn();
         };
-    } else {
-        alert('お使いのブラウザは音声認識に対応していません。Google Chrome等をご利用ください。');
     }
 
-    // 音声入力ボタンが押されたとき
+    function resetMicBtn() {
+        isListening = false;
+        document.getElementById('micBtn').classList.remove('listening');
+        document.getElementById('micBtn').innerText = '🎤 音声入力';
+    }
+
     function startVoiceInput() {
-        // 初回タップ時にオーディオとスリープ防止を解放
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             requestWakeLock();
@@ -209,27 +296,32 @@
         if (recognition && !isListening) {
             try {
                 recognition.start();
-            } catch (e) {
-                console.error(e);
-            }
+            } catch (e) {}
         }
     }
 
-    // 呼び出し実行（名前確認表示 ＋ アナウンス）
-    function handleCall(name) {
-        if (!name) return;
+    // [呼出] ボタンを押したときの確定処理
+    function executeCall(forcedName) {
+        const nameToCall = forcedName || currentTargetName;
+        if (!nameToCall) return;
 
         if (resetTimer) clearTimeout(resetTimer);
 
-        // 画面に「〇〇 さん」と確認表示
-        document.getElementById('nameDisplay').innerText = name + ' さん';
+        document.getElementById('nameDisplay').innerText = nameToCall + ' さん';
         document.getElementById('statusBadge').innerText = '呼び出し中';
-        document.getElementById('statusBadge').style.color = '#ffc107';
+        document.getElementById('statusBadge').style.color = '#28a745';
+        document.getElementById('callBtn').disabled = true;
 
-        // 2回チャイム ＋ 音声読み上げ
-        speak(name);
+        // 音声出力
+        speak(nameToCall);
 
-        // 1分後に自動で「案内表示」待機状態に戻す
+        // 履歴に追加
+        if (!forcedName) {
+            addHistory(nameToCall);
+            currentTargetName = "";
+        }
+
+        // 1分後に「案内表示」にリセット
         resetTimer = setTimeout(() => {
             resetToStandby();
         }, 60000);
@@ -238,13 +330,31 @@
     function resetToStandby() {
         document.getElementById('nameDisplay').innerText = '案内表示';
         document.getElementById('statusBadge').innerText = '待機中';
-        document.getElementById('statusBadge').style.color = '#aaa';
+        document.getElementById('statusBadge').style.color = '#888';
+        document.getElementById('callBtn').disabled = true;
+    }
+
+    function addHistory(name) {
+        const list = document.getElementById('historyList');
+        const item = document.createElement('div');
+        item.className = 'history-item';
+
+        const now = new Date();
+        const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+        item.innerHTML = `
+            <div>
+                <span class="history-time">${timeStr}</span>
+                <span class="history-name">${name}</span>
+            </div>
+            <button class="re-call-btn" onclick="executeCall('${name}')">呼出</button>
+        `;
+        list.insertBefore(item, list.firstChild);
     }
 
     // 4. チャイム＆音声読み上げ
     function speak(name) {
         window.speechSynthesis.cancel();
-        
         playChimeDouble(() => {
             const text = `${name}さん、1番の診察室へお入りください`;
             const uttr = new SpeechSynthesisUtterance(text);
