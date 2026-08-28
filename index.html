@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>スマホ音声呼び出し</title>
-    <!-- 漢字をカタカナに自動変換する形態素解析ライブラリ -->
-    <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
     <style>
         * { box-sizing: border-box; }
         body { 
@@ -16,52 +14,54 @@
             min-height: 100vh; 
             display: flex; 
             flex-direction: column; 
-            justify-content: space-between;
+            justify-content: space-between; 
             padding: 15px;
-            padding-bottom: 90px;
+            padding-bottom: 95px;
             user-select: none;
         }
 
-        /* メイン表示・確認エリア */
+        /* メイン表示エリア */
         .display-area {
             width: 100%;
             max-width: 500px;
             margin: 0 auto;
             text-align: center;
             background: #1e1e1e;
-            padding: 20px 15px;
+            padding: 25px 15px;
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
         .status-badge {
-            font-size: 13px;
+            font-size: 14px;
             color: #888;
             margin-bottom: 12px;
-            padding: 3px 10px;
+            padding: 4px 12px;
             background: #2a2a2a;
             border-radius: 15px;
             display: inline-block;
         }
-        .kanji-box {
-            font-size: 36px;
-            font-weight: bold;
-            color: #ffffff;
-            min-height: 46px;
-            word-break: break-all;
-            line-height: 1.2;
-        }
-        .kana-box {
-            font-size: 26px;
+        /* メイン：大きなカタカナ表示 */
+        .kana-main-box {
+            font-size: 40px;
             font-weight: bold;
             color: #00ffcc;
-            min-height: 34px;
+            min-height: 55px;
             word-break: break-all;
             line-height: 1.2;
-            margin-top: 6px;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        /* サブ：漢字などのおまけ表示 */
+        .kanji-sub-box {
+            font-size: 18px;
+            color: #888;
+            margin-top: 8px;
+            min-height: 24px;
         }
 
-        /* 手動テキスト入力エリア */
+        /* 手動入力エリア */
         .manual-input-area {
             width: 100%;
             max-width: 500px;
@@ -111,7 +111,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
-            max-height: 180px;
+            max-height: 200px;
             overflow-y: auto;
         }
         .history-item {
@@ -123,24 +123,24 @@
             align-items: center;
             border: 1px solid #2a2a2a;
         }
-        .history-names {
+        .history-name-wrap {
             display: flex;
             align-items: baseline;
             gap: 8px;
         }
-        .history-kanji {
+        .history-kana {
             font-size: 16px;
             font-weight: bold;
-            color: #eee;
-        }
-        .history-kana {
-            font-size: 13px;
             color: #00ffcc;
+        }
+        .history-kanji {
+            font-size: 12px;
+            color: #777;
         }
         .history-time {
             font-size: 11px;
             color: #666;
-            margin-right: 8px;
+            margin-right: 6px;
         }
         .re-call-btn {
             background: #333;
@@ -153,7 +153,7 @@
             cursor: pointer;
         }
 
-        /* 画面最下部固定のボタンスペース */
+        /* 下部固定ボタン */
         .fixed-footer {
             position: fixed;
             bottom: 0;
@@ -220,16 +220,16 @@
 </head>
 <body>
 
-    <!-- 画面上部：漢字・カタカナ2段表示エリア -->
+    <!-- 画面上部：カタカナメイン ＋ 漢字サブ表示 -->
     <div class="display-area">
-        <div id="statusBadge" class="status-badge">辞書読込中...</div>
-        <div id="kanjiDisplay" class="kanji-box">案内表示</div>
-        <div id="kanaDisplay" class="kana-box">アンナイ ヒョウジ</div>
+        <div id="statusBadge" class="status-badge">待機中</div>
+        <div id="kanaDisplay" class="kana-main-box">案内表示</div>
+        <div id="kanjiDisplay" class="kanji-sub-box"></div>
     </div>
 
     <!-- 手動入力エリア -->
     <div class="manual-input-area">
-        <input type="text" id="manualInput" class="manual-input" placeholder="名前を手入力（漢字・かなOK）..." onkeypress="handleManualKey(event)">
+        <input type="text" id="manualInput" class="manual-input" placeholder="直接入力（カタカナ・漢字など）..." onkeypress="handleManualKey(event)">
         <button class="btn-set" onclick="setManualName()">セット</button>
     </div>
 
@@ -260,29 +260,10 @@
     let resetTimer = null;
     let recognition = null;
     let isListening = false;
-    let tokenizer = null; // 漢字カタカナ変換用
-
-    let currentKanji = "";
+    let currentRaw = "";
     let currentKana = "";
 
-    // 辞書（Kuromoji）の初期化
-    kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build(function (err, _tokenizer) {
-        if (err) {
-            console.error(err);
-            document.getElementById('statusBadge').innerText = '待機中';
-            return;
-        }
-        tokenizer = _tokenizer;
-        document.getElementById('statusBadge').innerText = '待機中';
-    });
-
-    // 漢字テキストをカタカナに変換する関数
-    function convertToKana(text) {
-        if (!tokenizer) return text;
-        const tokens = tokenizer.tokenize(text);
-        return tokens.map(token => token.reading || token.surface).join('');
-    }
-
+    // スリープ防止
     async function requestWakeLock() {
         try {
             if ('wakeLock' in navigator) {
@@ -291,6 +272,7 @@
         } catch (err) {}
     }
 
+    // Bluetooth切断防止（10分ごとに微弱音）
     function startBluetoothKeepAlive() {
         setInterval(() => {
             try {
@@ -309,6 +291,13 @@
                 osc.stop(audioCtx.currentTime + 0.5);
             } catch (e) {}
         }, 600000);
+    }
+
+    // ひらがなをカタカナに変換する関数
+    function toKatakana(str) {
+        return str.replace(/[\u3041-\u3096]/g, function(match) {
+            return String.fromCharCode(match.charCodeAt(0) + 0x60);
+        });
     }
 
     // 音声認識初期化
@@ -331,13 +320,13 @@
             const transcript = event.results[0][0].transcript.trim();
             const clean = transcript.replace(/(さん|様|さま|君|くん)$/, '');
             
-            currentKanji = clean;
-            currentKana = convertToKana(clean);
+            currentRaw = clean;
+            currentKana = toKatakana(clean);
 
-            // 1行目：漢字さん / 2行目：カタカナ サン
-            document.getElementById('kanjiDisplay').innerText = currentKanji + ' さん';
+            // メイン：カタカナ / サブ：漢字など
             document.getElementById('kanaDisplay').innerText = currentKana + ' サン';
-            document.getElementById('statusBadge').innerText = '名前を確認して [呼出] をタップ';
+            document.getElementById('kanjiDisplay').innerText = (currentRaw !== currentKana) ? `[ ${currentRaw} ]` : '';
+            document.getElementById('statusBadge').innerText = '確認して [呼出] をタップ';
             document.getElementById('statusBadge').style.color = '#ffc107';
 
             document.getElementById('callBtn').disabled = false;
@@ -379,19 +368,19 @@
         }
     }
 
-    // 手動入力セット
+    // 手動入力
     function setManualName() {
         initAudioContext();
         const input = document.getElementById('manualInput');
         const val = input.value.trim().replace(/(さん|様|さま|君|くん)$/, '');
         if (!val) return;
 
-        currentKanji = val;
-        currentKana = convertToKana(val);
+        currentRaw = val;
+        currentKana = toKatakana(val);
 
-        document.getElementById('kanjiDisplay').innerText = currentKanji + ' さん';
         document.getElementById('kanaDisplay').innerText = currentKana + ' サン';
-        document.getElementById('statusBadge').innerText = '確認後 [呼出] をタップ';
+        document.getElementById('kanjiDisplay').innerText = (currentRaw !== currentKana) ? `[ ${currentRaw} ]` : '';
+        document.getElementById('statusBadge').innerText = '確認して [呼出] をタップ';
         document.getElementById('statusBadge').style.color = '#ffc107';
 
         document.getElementById('callBtn').disabled = false;
@@ -406,26 +395,25 @@
     }
 
     // 呼出実行
-    function executeCall(forcedKanji, forcedKana) {
+    function executeCall(forcedKana, forcedRaw) {
         initAudioContext();
-        const kanji = forcedKanji || currentKanji;
-        const kana = forcedKana || currentKana || convertToKana(kanji);
-        if (!kanji) return;
+        const kanaToCall = forcedKana || currentKana;
+        const rawToCall = forcedRaw || currentRaw;
+        if (!kanaToCall) return;
 
         if (resetTimer) clearTimeout(resetTimer);
 
-        document.getElementById('kanjiDisplay').innerText = kanji + ' さん';
-        document.getElementById('kanaDisplay').innerText = kana + ' サン';
+        document.getElementById('kanaDisplay').innerText = kanaToCall + ' サン';
+        document.getElementById('kanjiDisplay').innerText = (rawToCall && rawToCall !== kanaToCall) ? `[ ${rawToCall} ]` : '';
         document.getElementById('statusBadge').innerText = '呼び出し中';
         document.getElementById('statusBadge').style.color = '#28a745';
         document.getElementById('callBtn').disabled = true;
 
-        // 読み上げ時はカタカナを優先して自然に発音
-        speak(kana || kanji);
+        speak(kanaToCall);
 
-        if (!forcedKanji) {
-            addHistory(kanji, kana);
-            currentKanji = "";
+        if (!forcedKana) {
+            addHistory(kanaToCall, rawToCall);
+            currentRaw = "";
             currentKana = "";
         }
 
@@ -435,33 +423,34 @@
     }
 
     function resetToStandby() {
-        document.getElementById('kanjiDisplay').innerText = '案内表示';
-        document.getElementById('kanaDisplay').innerText = 'アンナイ ヒョウジ';
+        document.getElementById('kanaDisplay').innerText = '案内表示';
+        document.getElementById('kanjiDisplay').innerText = '';
         document.getElementById('statusBadge').innerText = '待機中';
         document.getElementById('statusBadge').style.color = '#888';
         document.getElementById('callBtn').disabled = true;
     }
 
-    function addHistory(kanji, kana) {
+    function addHistory(kana, raw) {
         const list = document.getElementById('historyList');
         const item = document.createElement('div');
         item.className = 'history-item';
 
         const now = new Date();
         const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+        const subHtml = (raw && raw !== kana) ? `<span class="history-kanji">[${raw}]</span>` : '';
 
         item.innerHTML = `
-            <div class="history-names">
+            <div class="history-name-wrap">
                 <span class="history-time">${timeStr}</span>
-                <span class="history-kanji">${kanji}</span>
-                <span class="history-kana">(${kana})</span>
+                <span class="history-kana">${kana}</span>
+                ${subHtml}
             </div>
-            <button class="re-call-btn" onclick="executeCall('${kanji}', '${kana}')">呼出</button>
+            <button class="re-call-btn" onclick="executeCall('${kana}', '${raw || ''}')">呼出</button>
         `;
         list.insertBefore(item, list.firstChild);
     }
 
-    // チャイム & 発声
+    // チャイム & 発声（カタカナベースで読み上げ）
     function speak(nameKana) {
         window.speechSynthesis.cancel();
         playChimeDouble(() => {
