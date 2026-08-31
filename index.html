@@ -254,24 +254,10 @@
     let currentKana = "";
     let globalUtterance = null; 
 
-    const kanjiMap = {
-        '池':'イケ','水':'ミズ','川':'カワ','山':'ヤマ','田':'タ','中':'ナカ',
-        '小':'コ','林':'バヤシ','森':'モリ','原':'ハラ','野':'ノ','藤':'トウ',
-        '木':'キ','村':'ムラ','本':'モト','井':'イ','石':'イシ','島':'シマ',
-        '谷':'タニ','岡':'オカ','坂':'サカ','松':'マツ','竹':'タケ','梅':'ウメ',
-        '福':'フク','金':'カネ','吉':'ヨシ','大':'オオ','佐':'サ','加':'カ',
-        '安':'アン','渡':'ワタ','辺':'ナベ','部':'ベ','高':'タカ','橋':'ハシ',
-        '鈴':'スズ','斉':'サイ','斎':'サイ','近':'コン','遠':'エン','後':'ゴ',
-        '前':'マエ','内':'ウチ','宮':'ミヤ','岩':'イワ','柴':'シバ','酒':'サカ'
-    };
-
-    function convertToKatakana(text) {
+    // 平仮名・アルファベットをすべてカタカナに統一する関数
+    function toPureKatakana(text) {
         if (!text) return '';
-        let result = '';
-        for (let char of text) {
-            result += kanjiMap[char] ? kanjiMap[char] : char;
-        }
-        return result.replace(/[\u3041-\u3096]/g, function(match) {
+        return text.replace(/[\u3041-\u3096]/g, function(match) {
             return String.fromCharCode(match.charCodeAt(0) + 0x60);
         });
     }
@@ -303,6 +289,7 @@
         }, 600000);
     }
 
+    // 音声認識初期化（カタカナ音声をダイレクト取得）
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
@@ -319,9 +306,13 @@
         };
 
         recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript.trim();
-            const clean = transcript.replace(/(さん|様|さま|君|くん)$/, '');
-            currentKana = convertToKatakana(clean);
+            let rawText = event.results[0][0].transcript.trim();
+            
+            // 「さん」「様」などの末尾語句を削除
+            let clean = rawText.replace(/(さん|様|さま|君|くん)$/, '');
+            
+            // カタカナ化
+            currentKana = toPureKatakana(clean);
 
             document.getElementById('kanaDisplay').innerText = currentKana + ' さん';
             document.getElementById('statusBadge').innerText = '確認して [呼出] をタップ';
@@ -372,7 +363,7 @@
         const val = input.value.trim().replace(/(さん|様|さま|君|くん)$/, '');
         if (!val) return;
 
-        currentKana = convertToKatakana(val);
+        currentKana = toPureKatakana(val);
         document.getElementById('kanaDisplay').innerText = currentKana + ' さん';
         document.getElementById('statusBadge').innerText = '確認して [呼出] をタップ';
         document.getElementById('statusBadge').style.color = '#ffc107';
@@ -397,7 +388,6 @@
         document.getElementById('statusBadge').style.color = '#28a745';
         document.getElementById('callBtn').disabled = true;
 
-        // 標準チャイム音 ➔ 2秒後にアナウンス再生
         playChimeAndSpeakDirect(kanaToCall);
 
         if (!forcedKana) {
@@ -435,18 +425,16 @@
         list.insertBefore(item, list.firstChild);
     }
 
-    // チャイム再生（標準速度）と開始から2秒後の発声
+    // チャイム再生 ➔ 2秒後にカタカナ発声
     function playChimeAndSpeakDirect(nameKana) {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
 
         const t = audioCtx.currentTime;
         
-        // 元の標準チャイム（ピポーン♪ ピポーン♪）
         playStandardTone(784, 1046, t);
         playStandardTone(784, 1046, t + 0.35);
 
-        // チャイム開始から【正確に2.0秒後】にアナウンスを開始
         setTimeout(() => {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
@@ -466,10 +454,9 @@
 
                 window.speechSynthesis.speak(globalUtterance);
             }
-        }, 2000); // 2000ミリ秒（2秒）待機
+        }, 2000);
     }
 
-    // 標準のチャイム音（ピポーン）
     function playStandardTone(f1, f2, startTime) {
         try {
             const osc = audioCtx.createOscillator();
