@@ -397,6 +397,7 @@
         document.getElementById('statusBadge').style.color = '#28a745';
         document.getElementById('callBtn').disabled = true;
 
+        // 標準チャイム音 ➔ 2秒後にアナウンス再生
         playChimeAndSpeakDirect(kanaToCall);
 
         if (!forcedKana) {
@@ -434,60 +435,54 @@
         list.insertBefore(item, list.firstChild);
     }
 
-    // チャイムをよりゆっくり再生し、1秒以上の間を置いてから名前を呼ぶ
+    // チャイム再生（標準速度）と開始から2秒後の発声
     function playChimeAndSpeakDirect(nameKana) {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
 
         const t = audioCtx.currentTime;
         
-        // 1回目のチャイム（ゆっくり鳴らし、余韻を0.7秒持たせる）
-        playTone(784, 1046, t);
-        
-        // 2回目のチャイム（1回目から0.9秒あけて再生）
-        playTone(784, 1046, t + 0.9);
+        // 元の標準チャイム（ピポーン♪ ピポーン♪）
+        playStandardTone(784, 1046, t);
+        playStandardTone(784, 1046, t + 0.35);
 
-        // 2回目チャイム終了（t + 1.6秒）からさらに1秒強の間隔を空けて発声開始
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.resume();
+        // チャイム開始から【正確に2.0秒後】にアナウンスを開始
+        setTimeout(() => {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.resume();
 
-            // 句読点によるポーズ制御でチャイム完了後＋約1秒の静寂を作ってからアナウンス
-            const text = `、、、、、、、、、、、、${nameKana}さん、一番の診察室へお入りください`;
-            globalUtterance = new SpeechSynthesisUtterance(text);
-            globalUtterance.lang = 'ja-JP';
-            globalUtterance.rate = 0.92; // 落ち着いた自然な速度
-            globalUtterance.pitch = 1.0;
+                const text = `${nameKana}さん、一番の診察室へお入りください`;
+                globalUtterance = new SpeechSynthesisUtterance(text);
+                globalUtterance.lang = 'ja-JP';
+                globalUtterance.rate = 0.95;
+                globalUtterance.pitch = 1.0;
 
-            const voices = window.speechSynthesis.getVoices();
-            const jaVoice = voices.find(v => v.lang.includes('ja') || v.lang.includes('JP'));
-            if (jaVoice) {
-                globalUtterance.voice = jaVoice;
+                const voices = window.speechSynthesis.getVoices();
+                const jaVoice = voices.find(v => v.lang.includes('ja') || v.lang.includes('JP'));
+                if (jaVoice) {
+                    globalUtterance.voice = jaVoice;
+                }
+
+                window.speechSynthesis.speak(globalUtterance);
             }
-
-            window.speechSynthesis.speak(globalUtterance);
-        }
+        }, 2000); // 2000ミリ秒（2秒）待機
     }
 
-    // 1音1音の余韻を長く、より落ち着いたトーンにする
-    function playTone(f1, f2, startTime) {
+    // 標準のチャイム音（ピポーン）
+    function playStandardTone(f1, f2, startTime) {
         try {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = 'sine';
-            
-            // ピーン（0.3秒）➔ ポーン（0.4秒余韻）
             osc.frequency.setValueAtTime(f1, startTime);
-            osc.frequency.setValueAtTime(f2, startTime + 0.3);
-            
+            osc.frequency.setValueAtTime(f2, startTime + 0.15);
             gain.gain.setValueAtTime(0.25, startTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.7);
-            
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.6);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-            
             osc.start(startTime);
-            osc.stop(startTime + 0.7);
+            osc.stop(startTime + 0.6);
         } catch (e) {}
     }
 </script>
