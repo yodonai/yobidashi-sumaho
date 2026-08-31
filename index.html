@@ -11,16 +11,16 @@
             margin: 0; 
             background: #121212; 
             color: #fff; 
-            min-height: 100dvh; /* スマホのアドレスバー分を考慮して100%の高さにする設定 */
+            min-height: 100dvh; 
             display: flex; 
             flex-direction: column; 
             justify-content: space-between; 
-            padding: 10px; /* 全体の余白を少し小さく */
-            padding-bottom: 130px; /* 下部ボタンが被らないようにスペース確保 */
+            padding: 10px; 
+            padding-bottom: 130px; 
             user-select: none;
         }
 
-        /* 1. 履歴エリア（高さを縮小して省スペース化） */
+        /* 1. 履歴エリア */
         .history-section {
             width: 100%;
             max-width: 500px;
@@ -40,7 +40,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
-            max-height: 110px; /* 履歴エリアを小さくして下部を押し出さないように */
+            max-height: 110px;
             overflow-y: auto;
         }
         .history-item {
@@ -85,7 +85,7 @@
             margin: 10px auto;
             text-align: center;
             background: #1e1e1e;
-            padding: 15px; /* 余白をコンパクトに */
+            padding: 15px; 
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
@@ -99,7 +99,7 @@
             display: inline-block;
         }
         .kana-main-box {
-            font-size: 36px; /* 画面に収まるようフォントサイズを微調整 */
+            font-size: 36px; 
             font-weight: bold;
             color: #00ffcc;
             min-height: 45px;
@@ -163,7 +163,7 @@
         }
         .action-btn {
             flex: 1;
-            height: 100px; /* 画面に収まりやすくかつ押しやすいサイズに調整 */
+            height: 100px; 
             border-radius: 12px;
             border: none;
             font-size: 20px;
@@ -434,25 +434,29 @@
         list.insertBefore(item, list.firstChild);
     }
 
-    // ゆっくりしたチャイム音と音声読み上げ
+    // チャイムをよりゆっくり再生し、1秒以上の間を置いてから名前を呼ぶ
     function playChimeAndSpeakDirect(nameKana) {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
 
         const t = audioCtx.currentTime;
-        // チャイムの間隔を長くし、余韻を持たせる (0.5秒間隔)
+        
+        // 1回目のチャイム（ゆっくり鳴らし、余韻を0.7秒持たせる）
         playTone(784, 1046, t);
-        playTone(784, 1046, t + 0.5);
+        
+        // 2回目のチャイム（1回目から0.9秒あけて再生）
+        playTone(784, 1046, t + 0.9);
 
+        // 2回目チャイム終了（t + 1.6秒）からさらに1秒強の間隔を空けて発声開始
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
             window.speechSynthesis.resume();
 
-            // 「、、、」を見えない沈黙（ポーズ）として使い、ゆっくり鳴るチャイムが終わるのを待ってから発声させる
-            const text = `、、、、${nameKana}さん、一番の診察室へお入りください`;
+            // 句読点によるポーズ制御でチャイム完了後＋約1秒の静寂を作ってからアナウンス
+            const text = `、、、、、、、、、、、、${nameKana}さん、一番の診察室へお入りください`;
             globalUtterance = new SpeechSynthesisUtterance(text);
             globalUtterance.lang = 'ja-JP';
-            globalUtterance.rate = 0.95;
+            globalUtterance.rate = 0.92; // 落ち着いた自然な速度
             globalUtterance.pitch = 1.0;
 
             const voices = window.speechSynthesis.getVoices();
@@ -465,20 +469,25 @@
         }
     }
 
-    // チャイムの音の長さを調整
+    // 1音1音の余韻を長く、より落ち着いたトーンにする
     function playTone(f1, f2, startTime) {
         try {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = 'sine';
+            
+            // ピーン（0.3秒）➔ ポーン（0.4秒余韻）
             osc.frequency.setValueAtTime(f1, startTime);
-            osc.frequency.setValueAtTime(f2, startTime + 0.15); // 1音目を少し長めに
+            osc.frequency.setValueAtTime(f2, startTime + 0.3);
+            
             gain.gain.setValueAtTime(0.25, startTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4); // 余韻を長めに
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.7);
+            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
+            
             osc.start(startTime);
-            osc.stop(startTime + 0.4);
+            osc.stop(startTime + 0.7);
         } catch (e) {}
     }
 </script>
