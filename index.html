@@ -14,16 +14,89 @@
             min-height: 100vh; 
             display: flex; 
             flex-direction: column; 
+            justify-content: space-between; 
             padding: 15px;
-            padding-bottom: 150px; /* 大型固定ボタン用の余白 */
+            padding-bottom: 150px; /* 高さ2倍のボタン用に余白を拡張 */
             user-select: none;
         }
 
-        /* 1. 最上部：履歴エリア */
+        /* メイン表示エリア */
+        .display-area {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            text-align: center;
+            background: #1e1e1e;
+            padding: 25px 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .status-badge {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 12px;
+            padding: 4px 12px;
+            background: #2a2a2a;
+            border-radius: 15px;
+            display: inline-block;
+        }
+        /* メイン：カタカナ表示 */
+        .kana-main-box {
+            font-size: 42px;
+            font-weight: bold;
+            color: #00ffcc;
+            min-height: 55px;
+            word-break: break-all;
+            line-height: 1.2;
+            letter-spacing: 2px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .kanji-sub-box {
+            font-size: 18px;
+            color: #aaa;
+            margin-top: 8px;
+            min-height: 24px;
+        }
+
+        /* 手動入力エリア */
+        .manual-input-area {
+            width: 100%;
+            max-width: 500px;
+            margin: 15px auto 0 auto;
+            display: flex;
+            gap: 8px;
+        }
+        .manual-input {
+            flex: 1;
+            padding: 12px 14px;
+            font-size: 16px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: #222;
+            color: #fff;
+            outline: none;
+        }
+        .manual-input:focus { border-color: #007bff; }
+        .btn-set {
+            background: #444;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 0 16px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        /* 履歴エリア */
         .history-section {
             width: 100%;
             max-width: 500px;
-            margin: 0 auto 15px auto;
+            margin: 15px auto;
+            flex: 1;
         }
         .history-title {
             font-size: 13px;
@@ -38,7 +111,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
-            max-height: 140px;
+            max-height: 200px;
             overflow-y: auto;
         }
         .history-item {
@@ -80,77 +153,7 @@
             cursor: pointer;
         }
 
-        /* 2. 中央：メイン表示エリア */
-        .display-area {
-            width: 100%;
-            max-width: 500px;
-            margin: 0 auto;
-            text-align: center;
-            background: #1e1e1e;
-            padding: 20px 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }
-        .status-badge {
-            font-size: 14px;
-            color: #888;
-            margin-bottom: 10px;
-            padding: 4px 12px;
-            background: #2a2a2a;
-            border-radius: 15px;
-            display: inline-block;
-        }
-        .kana-main-box {
-            font-size: 38px;
-            font-weight: bold;
-            color: #00ffcc;
-            min-height: 50px;
-            word-break: break-all;
-            line-height: 1.2;
-            letter-spacing: 2px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .kanji-sub-box {
-            font-size: 16px;
-            color: #aaa;
-            margin-top: 6px;
-            min-height: 22px;
-        }
-
-        /* 3. 中央下：手動直接入力エリア */
-        .manual-input-area {
-            width: 100%;
-            max-width: 500px;
-            margin: 15px auto 0 auto;
-            display: flex;
-            gap: 8px;
-        }
-        .manual-input {
-            flex: 1;
-            padding: 12px 14px;
-            font-size: 16px;
-            border: 2px solid #333;
-            border-radius: 8px;
-            background: #222;
-            color: #fff;
-            outline: none;
-        }
-        .manual-input:focus { border-color: #007bff; }
-        .btn-manual {
-            background: #444;
-            color: #fff;
-            border: 1px solid #555;
-            padding: 0 16px;
-            font-size: 14px;
-            font-weight: bold;
-            border-radius: 8px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        /* 4. 最下部：大型固定ボタン（高さ2倍） */
+        /* 下部固定ボタン（高さを2倍の120pxに変更） */
         .fixed-footer {
             position: fixed;
             bottom: 0;
@@ -174,7 +177,7 @@
             height: 120px; /* 従来の2倍の高さ */
             border-radius: 14px;
             border: none;
-            font-size: 24px; /* テキストサイズも拡大 */
+            font-size: 24px;
             font-weight: bold;
             cursor: pointer;
             display: flex;
@@ -218,7 +221,20 @@
 </head>
 <body>
 
-    <!-- 1. 最上部：履歴エリア -->
+    <!-- 画面上部：カタカナメイン表示 -->
+    <div class="display-area">
+        <div id="statusBadge" class="status-badge">待機中</div>
+        <div id="kanaDisplay" class="kana-main-box">案内表示</div>
+        <div id="kanjiDisplay" class="kanji-sub-box"></div>
+    </div>
+
+    <!-- 手動入力エリア -->
+    <div class="manual-input-area">
+        <input type="text" id="manualInput" class="manual-input" placeholder="直接入力（カタカナ・漢字）..." onkeypress="handleManualKey(event)">
+        <button class="btn-set" onclick="setManualName()">手動入力</button>
+    </div>
+
+    <!-- 履歴エリア -->
     <div class="history-section">
         <div class="history-title">
             <span>呼び出し履歴</span>
@@ -227,20 +243,7 @@
         <div id="historyList" class="history-list"></div>
     </div>
 
-    <!-- 2. 中央：カタカナメイン表示画面 -->
-    <div class="display-area">
-        <div id="statusBadge" class="status-badge">待機中</div>
-        <div id="kanaDisplay" class="kana-main-box">案内表示</div>
-        <div id="kanjiDisplay" class="kanji-sub-box"></div>
-    </div>
-
-    <!-- 3. 中央下：手動直接入力エリア -->
-    <div class="manual-input-area">
-        <input type="text" id="manualInput" class="manual-input" placeholder="直接入力（カタカナ・漢字）..." onkeypress="handleManualKey(event)">
-        <button class="btn-manual" onclick="setManualName()">手動入力</button>
-    </div>
-
-    <!-- 4. 最下部：高さ2倍の大型操作ボタン -->
+    <!-- 画面下部：固定操作ボタン（高さ2倍） -->
     <div class="fixed-footer">
         <div class="btn-container">
             <button id="micBtn" class="action-btn btn-mic" onclick="startVoiceInput()">
@@ -275,8 +278,10 @@
         '前':'マエ','内':'ウチ','宮':'ミヤ','岩':'イワ','柴':'シバ','酒':'サカ'
     };
 
+    // 音声認識で漢字にされても、漢字を分解してカタカナ音に復元する関数
     function convertToStrictKana(text) {
         if (!text) return '';
+        
         let result = '';
         for (let char of text) {
             if (kanjiMap[char]) {
@@ -285,11 +290,13 @@
                 result += char;
             }
         }
+        
         return result.replace(/[\u3041-\u3096]/g, function(match) {
             return String.fromCharCode(match.charCodeAt(0) + 0x60);
         });
     }
 
+    // スリープ防止
     async function requestWakeLock() {
         try {
             if ('wakeLock' in navigator) {
@@ -298,6 +305,7 @@
         } catch (err) {}
     }
 
+    // Bluetooth切断防止（10分ごとに微弱音）
     function startBluetoothKeepAlive() {
         setInterval(() => {
             try {
@@ -318,6 +326,7 @@
         }, 600000);
     }
 
+    // 音声認識初期化
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
@@ -340,6 +349,7 @@
             currentRaw = clean;
             currentKana = convertToStrictKana(clean);
 
+            // 画面メインにカタカナ表示
             document.getElementById('kanaDisplay').innerText = currentKana + ' さん';
             document.getElementById('kanjiDisplay').innerText = (currentRaw !== currentKana) ? `[ ${currentRaw} ]` : '';
             document.getElementById('statusBadge').innerText = '確認して [呼出] をタップ';
@@ -410,7 +420,7 @@
         }
     }
 
-    // 呼出実行
+    // 呼出実行（必ずカタカナ文字列を渡して発声させる）
     function executeCall(forcedKana, forcedRaw) {
         initAudioContext();
         const kanaToCall = forcedKana || currentKana;
@@ -425,6 +435,7 @@
         document.getElementById('statusBadge').style.color = '#28a745';
         document.getElementById('callBtn').disabled = true;
 
+        // 音声合成に【カタカナのみ】を渡して発音させる
         speak(kanaToCall);
 
         if (!forcedKana) {
@@ -466,7 +477,7 @@
         list.insertBefore(item, list.firstChild);
     }
 
-    // チャイム & 発声
+    // チャイム & 発声（カタカナ文字列を渡すため「チスイ」等の誤読が発生しません）
     function speak(nameKana) {
         window.speechSynthesis.cancel();
         playChimeDouble(() => {
