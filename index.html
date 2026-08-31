@@ -55,9 +55,9 @@
         .history-name-wrap {
             display: flex;
             align-items: baseline;
-            gap: 8px;
+            gap: 6px;
         }
-        .history-kana {
+        .history-main-text {
             font-size: 16px;
             font-weight: bold;
             color: #00ffcc;
@@ -78,14 +78,14 @@
             cursor: pointer;
         }
 
-        /* 2. メイン表示エリア */
+        /* 2. メイン表示エリア（漢字 ＋ カタカナ併記） */
         .display-area {
             width: 100%;
             max-width: 500px;
             margin: 10px auto;
             text-align: center;
             background: #1e1e1e;
-            padding: 15px; 
+            padding: 18px 15px; 
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
@@ -98,14 +98,13 @@
             border-radius: 15px;
             display: inline-block;
         }
-        .kana-main-box {
-            font-size: 36px; 
+        .display-main-box {
+            font-size: 34px; 
             font-weight: bold;
             color: #00ffcc;
-            min-height: 45px;
+            min-height: 48px;
             word-break: break-all;
             line-height: 1.2;
-            letter-spacing: 2px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -219,15 +218,15 @@
         <div id="historyList" class="history-list"></div>
     </div>
 
-    <!-- 2. カタカナメイン表示 -->
+    <!-- 2. メイン表示エリア（漢字＋カタカナ） -->
     <div class="display-area">
         <div id="statusBadge" class="status-badge">準備完了</div>
-        <div id="kanaDisplay" class="kana-main-box">案内表示</div>
+        <div id="displayMainBox" class="display-main-box">案内表示</div>
     </div>
 
     <!-- 3. 手動入力エリア -->
     <div class="manual-input-area">
-        <input type="text" id="manualInput" class="manual-input" placeholder="直接入力（カタカナ・ひらがな）..." onkeypress="handleManualKey(event)">
+        <input type="text" id="manualInput" class="manual-input" placeholder="直接入力（漢字・かなOK）..." onkeypress="handleManualKey(event)">
         <button class="btn-set" onclick="setManualName()">手動入力</button>
     </div>
 
@@ -251,15 +250,73 @@
     let resetTimer = null;
     let recognition = null;
     let isListening = false;
+    let currentRaw = "";
     let currentKana = "";
     let globalUtterance = null; 
 
-    // 平仮名・アルファベットをすべてカタカナに統一する関数
-    function toPureKatakana(text) {
+    // フル名字辞書（優先度高）
+    const fullSurnameMap = {
+        '中西':'ナカニシ','大西':'オオニシ','西村':'ニシムラ','西田':'ニシダ','西川':'ニシカワ','西山':'ニシヤマ',
+        '佐藤':'サトウ','鈴木':'スズキ','高橋':'タカハシ','田中':'タナカ','渡辺':'ワタナベ','渡邊':'ワタナベ','渡邉':'ワタナベ',
+        '伊藤':'イトウ','山本':'ヤマモト','中村':'ナカムラ','小林':'コバヤシ','加藤':'カトウ','吉田':'ヨシダ','山田':'ヤマダ',
+        '佐々木':'ササキ','山口':'ヤマグチ','松本':'マツモト','井上':'イノウエ','木村':'キムラ','林':'ハヤシ','斎藤':'サイトウ',
+        '斉藤':'サイトウ','齊藤':'サイトウ','清水':'シミズ','山崎':'ヤマザキ','森':'モリ','池田':'イケダ','橋本':'ハシモト',
+        '阿部':'アベ','石川':'イシカワ','山下':'ヤマシタ','中島':'ナカジマ','石井':'イシイ','小川':'オガワ','前田':'マエダ',
+        '岡田':'オカダ','長谷川':'ハセガワ','藤田':'フジタ','近藤':'コンドウ','後藤':'ゴトウ','遠藤':'エンドウ','村上':'ムラカミ',
+        '村田':'ムラタ','太田':'オオタ','金子':'カネコ','藤井':'フジイ','福田':'フクダ','三浦':'ミウラ','竹内':'タケウチ',
+        '中川':'ナカガワ','松田':'マツダ','原田':'ハラダ','中野':'ナカ野','小野':'オノ','田村':'タムラ','竹田':'タケダ',
+        '藤原':'フジワラ','石田':'イシダ','上田':'ウエダ','森田':'モリタ','原':'ハラ','柴田':'シバタ','酒井':'サカイ',
+        '工藤':'クドウ','横山':'ヨコヤマ','宮崎':'ミヤザキ','宮本':'ミヤモト','内田':'ウチダ','高木':'タカギ','安田':'ヤスダ',
+        '島田':'シマダ','谷口':'タニグチ','大野':'オオノ','高田':'タカダ','丸山':'マルヤマ','杉山':'スギヤマ','今井':'イマイ',
+        '河野':'コウノ','上野':'ウエノ','武田':'タケダ','野村':'ノムラ','菅原':'スガワラ','千葉':'チバ','岩崎':'イワサキ',
+        '木下':'キノシタ','久保':'クボ','佐野':'サノ','野口':'ノグチ','松井':'マツイ','市川':'イチカワ','菊地':'キクチ',
+        '菊池':'キクチ','水野':'ミズノ','服部':'ハットリ','古川':'フルカワ','藤本':'フジモト','大島':'オオシマ','内藤':'ナイトウ',
+        '杉本':'スギモト','矢野':'ヤノ','小池':'コイケ','安藤':'アンドウ','池水':'イケミズ','東':'ヒガシ','南':'ミナミ','北':'キタ'
+    };
+
+    // 漢字1文字ずつの音訓変換（名字パーツ）
+    const kanjiCharMap = {
+        '中':'ナカ','西':'ニシ','東':'ヒガシ','南':'ミナミ','北':'キタ','上':'ウエ','下':'シタ','前':'マエ','後':'ゴ',
+        '左':'ヒダリ','右':'ミギ','内':'ウチ','外':'ソト','田':'タ','山':'ヤマ','川':'カワ','村':'ムラ','町':'マチ',
+        '市':'イチ','谷':'タニ','岡':'オカ','坂':'サカ','崎':'サキ','沢':'サワ','澤':'サワ','原':'ハラ','野':'ノ',
+        '塚':'ツカ','沼':'ヌマ','浜':'ハマ','濱':'ハマ','浦':'ウラ','瀬':'セ','滝':'タキ','泉':'イズミ','池':'イケ',
+        '湖':'ミズウミ','海':'ウミ','江':'エ','津':'ツ','渡':'ワタ','辺':'ナベ','邊':'ナベ','邉':'ナベ','部':'ベ',
+        '木':'キ','林':'バヤシ','森':'モリ','本':'モト','枝':'エダ','根':'ネ','杉':'スギ','松':'マツ','竹':'タケ',
+        '梅':'ウメ','桜':'サクラ','櫻':'サクラ','柳':'ヤナギ','栗':'クリ','柿':'カキ','楠':'クス','椿':'ツバキ',
+        '桐':'キリ','萩':'ハギ','菊':'キク','藤':'フジ','葛':'クズ','芦':'アシ','荻':'オギ','菅':'スガ','芝':'シバ',
+        '牧':'マキ','畑':'ハタ','畠':'ハタケ','石':'イシ','岩':'イワ','砂':'スナ','堀':'ホリ','井':'イ','戸':'ト',
+        '門':'モン','倉':'クラ','蔵':'クラ','屋':'ヤ','室':'ムロ','堂':'ドウ','寺':'テラ','宮':'ミヤ','神':'カミ',
+        '島':'シマ','嶋':'シマ','金':'カネ','銀':'ギン','銅':'ドウ','鉄':'テツ','鈴':'スズ','鏡':'カガミ','鍋':'ナベ',
+        '釜':'カマ','矢':'ヤ','弓':'ユミ','吉':'ヨシ','福':'フク','幸':'サチ','徳':'トク','富':'トミ','宝':'タカラ',
+        '寿':'コトブキ','喜':'ヨシ','祝':'イワイ','栄':'サカエ','豊':'トヨ','盛':'モリ','益':'マス','高':'タカ',
+        '安':'アン','長':'ナガ','大':'オオ','小':'コ','広':'ヒロ','廣':'ヒロ','太':'タ','細':'ホソ','重':'シゲ',
+        '清':'キヨ','白':'シロ','黒':'クロ','赤':'アカ','青':'アオ','黄':'キ','緑':'ミドリ','春':'ハル','夏':'ナツ',
+        '秋':'アキ','冬':'フユ','朝':'アサ','昼':'ヒル','夕':'ユウ','夜':'ヨル','日':'ヒ','月':'ツキ','星':'ホシ',
+        '光':'ヒカリ','風':'カゼ','雨':'アメ','雪':'ユキ','雲':'クモ','佐':'サ','加':'カ','伊':'イ','阿':'ア',
+        '宇':'ウ','尾':'オ','保':'ホ','多':'タ','奈':'ナ','仁':'ジン','義':'ヨシ','智':'トモ','信':'シン',
+        '忠':'タダ','孝':'タカ','勇':'イサミ','武':'タケ','文':'フミ','正':'タダ','直':'ナオ','真':'マ','誠':'マコト',
+        '水':'ミズ','久':'ク','保':'ボ','生':'イケ','平':'タイラ','矢':'ヤ','永':'ナガ','立':'タテ','橋':'ハシ'
+    };
+
+    // 漢字から確実にカタカナ音を生成する関数
+    function convertToPronounceKana(text) {
         if (!text) return '';
-        return text.replace(/[\u3041-\u3096]/g, function(match) {
+        if (fullSurnameMap[text]) return fullSurnameMap[text];
+        
+        let res = '';
+        for (let char of text) {
+            res += kanjiCharMap[char] ? kanjiCharMap[char] : char;
+        }
+        return res.replace(/[\u3041-\u3096]/g, function(match) {
             return String.fromCharCode(match.charCodeAt(0) + 0x60);
         });
+    }
+
+    // 表示用の文字列を生成（漢字とカタカナが違う場合は「中西 (ナカニシ)」のように併記）
+    function formatDisplayName(raw, kana) {
+        if (!raw) return '';
+        if (raw === kana) return `${raw} さん`;
+        return `${raw} (${kana}) さん`;
     }
 
     async function requestWakeLock() {
@@ -289,7 +346,7 @@
         }, 600000);
     }
 
-    // 音声認識初期化（カタカナ音声をダイレクト取得）
+    // 音声認識
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
@@ -307,14 +364,13 @@
 
         recognition.onresult = (event) => {
             let rawText = event.results[0][0].transcript.trim();
-            
-            // 「さん」「様」などの末尾語句を削除
             let clean = rawText.replace(/(さん|様|さま|君|くん)$/, '');
             
-            // カタカナ化
-            currentKana = toPureKatakana(clean);
+            currentRaw = clean;
+            currentKana = convertToPronounceKana(clean);
 
-            document.getElementById('kanaDisplay').innerText = currentKana + ' さん';
+            // 画面に「中西 (ナカニシ) さん」のように表示
+            document.getElementById('displayMainBox').innerText = formatDisplayName(currentRaw, currentKana);
             document.getElementById('statusBadge').innerText = '確認して [呼出] をタップ';
             document.getElementById('statusBadge').style.color = '#ffc107';
             document.getElementById('callBtn').disabled = false;
@@ -363,8 +419,10 @@
         const val = input.value.trim().replace(/(さん|様|さま|君|くん)$/, '');
         if (!val) return;
 
-        currentKana = toPureKatakana(val);
-        document.getElementById('kanaDisplay').innerText = currentKana + ' さん';
+        currentRaw = val;
+        currentKana = convertToPronounceKana(val);
+
+        document.getElementById('displayMainBox').innerText = formatDisplayName(currentRaw, currentKana);
         document.getElementById('statusBadge').innerText = '確認して [呼出] をタップ';
         document.getElementById('statusBadge').style.color = '#ffc107';
         document.getElementById('callBtn').disabled = false;
@@ -376,22 +434,25 @@
         if (event.key === 'Enter') setManualName();
     }
 
-    function executeCall(forcedKana) {
+    function executeCall(forcedRaw, forcedKana) {
         unlockAudioEngine();
-        const kanaToCall = forcedKana || currentKana;
-        if (!kanaToCall) return;
+        const rawToCall = forcedRaw || currentRaw;
+        const kanaToCall = forcedKana || currentKana || convertToPronounceKana(rawToCall);
+        if (!rawToCall) return;
 
         if (resetTimer) clearTimeout(resetTimer);
 
-        document.getElementById('kanaDisplay').innerText = kanaToCall + ' さん';
+        document.getElementById('displayMainBox').innerText = formatDisplayName(rawToCall, kanaToCall);
         document.getElementById('statusBadge').innerText = '呼び出し中';
         document.getElementById('statusBadge').style.color = '#28a745';
         document.getElementById('callBtn').disabled = true;
 
+        // 音声発声には【カタカナ音】だけを渡して「チスイ」等の誤読を防止
         playChimeAndSpeakDirect(kanaToCall);
 
-        if (!forcedKana) {
-            addHistory(kanaToCall);
+        if (!forcedRaw) {
+            addHistory(rawToCall, kanaToCall);
+            currentRaw = "";
             currentKana = "";
         }
 
@@ -401,32 +462,33 @@
     }
 
     function resetToStandby() {
-        document.getElementById('kanaDisplay').innerText = '案内表示';
+        document.getElementById('displayMainBox').innerText = '案内表示';
         document.getElementById('statusBadge').innerText = '待機中';
         document.getElementById('statusBadge').style.color = '#888';
         document.getElementById('callBtn').disabled = true;
     }
 
-    function addHistory(kana) {
+    function addHistory(raw, kana) {
         const list = document.getElementById('historyList');
         const item = document.createElement('div');
         item.className = 'history-item';
 
         const now = new Date();
         const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+        const displayText = formatDisplayName(raw, kana);
 
         item.innerHTML = `
             <div class="history-name-wrap">
                 <span class="history-time">${timeStr}</span>
-                <span class="history-kana">${kana}</span>
+                <span class="history-main-text">${displayText}</span>
             </div>
-            <button class="re-call-btn" onclick="executeCall('${kana}')">呼出</button>
+            <button class="re-call-btn" onclick="executeCall('${raw}', '${kana}')">呼出</button>
         `;
         list.insertBefore(item, list.firstChild);
     }
 
-    // チャイム再生 ➔ 2秒後にカタカナ発声
-    function playChimeAndSpeakDirect(nameKana) {
+    // チャイム音再生 ➔ 開始2秒後に【カタカナ音】でアナウンス
+    function playChimeAndSpeakDirect(kanaToSpeak) {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
 
@@ -440,7 +502,8 @@
                 window.speechSynthesis.cancel();
                 window.speechSynthesis.resume();
 
-                const text = `${nameKana}さん、一番の診察室へお入りください`;
+                // 読み上げテキストは確実にカタカナのみを渡す
+                const text = `${kanaToSpeak}さん、一番の診察室へお入りください`;
                 globalUtterance = new SpeechSynthesisUtterance(text);
                 globalUtterance.lang = 'ja-JP';
                 globalUtterance.rate = 0.95;
